@@ -38,6 +38,7 @@ type BoardState = {
     overListId: string;
   }) => void;
   moveTaskToList: (taskId: string, toListId: string) => void;
+  receiveAiTask: (task: { id: string; title: string; description: string; listId: string }) => void;
 };
 
 export const useBoardStore = create<BoardState>()((set, get) => ({
@@ -211,5 +212,13 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
     api.tasks
       .move(taskId, { toListId, position: Math.max(0, position - 1) })
       .catch((err: Error) => set({ error: err.message }));
+  },
+
+  receiveAiTask: ({ id, title, description, listId }) => {
+    set((state) => ({
+      lists: state.lists.map((l) =>
+        l.id === listId ? { ...l, tasks: [...l.tasks, { id, title, description }] } : l,
+      ),
+    }));
   },
 }));

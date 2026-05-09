@@ -19,6 +19,7 @@ export function AIChatPanel() {
 
   const lists = useBoardStore((s) => s.lists);
   const moveTaskToList = useBoardStore((s) => s.moveTaskToList);
+  const receiveAiTask = useBoardStore((s) => s.receiveAiTask);
 
   useEffect(() => {
     if (open) bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -50,6 +51,8 @@ export function AIChatPanel() {
 
       if (action?.type === "move") {
         moveTaskToList(action.taskId, action.toListId);
+      } else if (action?.type === "create") {
+        receiveAiTask({ id: action.id, title: action.title, description: action.description, listId: action.listId });
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Request failed");

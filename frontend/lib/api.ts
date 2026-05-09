@@ -104,7 +104,10 @@ export const api = {
     }) =>
       req<{
         reply: string;
-        action: { type: string; taskId: string; toListId: string } | null;
+        action:
+          | { type: 'move'; taskId: string; toListId: string }
+          | { type: 'create'; id: string; title: string; description: string; listId: string }
+          | null;
       }>("/api/ai/chat", {
         method: "POST",
         body: JSON.stringify(data),

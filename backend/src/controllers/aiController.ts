@@ -1,5 +1,6 @@
 import { Response } from 'express';
 import { z } from 'zod';
+import { v4 as uuidv4 } from 'uuid';
 import { AuthRequest } from '../middleware/auth';
 import { chatCompletion } from '../lib/openrouter';
 import { getDb } from '../db/database';
@@ -29,9 +30,26 @@ interface MoveAction {
   toListId: string;
 }
 
+interface CreateAction {
+  type: 'create';
+  id: string;
+  title: string;
+  description: string;
+  listId: string;
+}
+
+type AiAction = MoveAction | CreateAction;
+
 interface AiJsonResponse {
   reply?: string;
-  action?: MoveAction | null;
+  action?: {
+    type?: string;
+    taskId?: string;
+    toListId?: string;
+    title?: string;
+    description?: string;
+    listId?: string;
+  } | null;
 }
 
 function buildBoardContext(board: BoardList[]): string {
@@ -60,19 +78,24 @@ function buildSystemPrompt(board?: BoardList[]): string {
 
   return `You are an AI assistant for a Kanban board application. Help users understand and manage their tasks.
 ${boardSection}
-When the user asks to MOVE a task to a different list, respond with ONLY valid JSON in this exact format:
+You can perform two actions. Use the exact JSON formats below.
+
+MOVE a task to a different list:
 {"reply":"<short confirmation>","action":{"type":"move","taskId":"<exact task id>","toListId":"<exact list id>"}}
 
-For all other messages (questions, summaries, counts, etc.), respond with ONLY valid JSON:
+CREATE a new task or card:
+{"reply":"<short confirmation>","action":{"type":"create","title":"<task title>","description":"<description or empty string>","listId":"<exact list id>"}}
+
+For all other messages (questions, summaries, counts, etc.):
 {"reply":"<your answer>"}
 
 Rules:
 - Always use the exact task IDs and list IDs shown in the board state above.
 - Do not wrap your response in markdown code fences — return raw JSON only.
-- If you cannot identify the task or list the user refers to, omit action and explain in reply.`;
+- If you cannot identify a task or list the user refers to, omit action and explain in reply.`;
 }
 
-function parseAiResponse(raw: string): { reply: string; action: MoveAction | null } {
+function parseAiResponse(raw: string): { reply: string; action: AiAction | null } {
   const clean = raw
     .replace(/^```(?:json)?\n?/, '')
     .replace(/\n?```$/, '')
@@ -82,11 +105,27 @@ function parseAiResponse(raw: string): { reply: string; action: MoveAction | nul
     const parsed = JSON.parse(clean) as AiJsonResponse;
     const reply = parsed.reply ?? raw;
     const a = parsed.action;
-    const action =
-      a && a.type === 'move' && a.taskId && a.toListId
-        ? { type: 'move' as const, taskId: a.taskId, toListId: a.toListId }
-        : null;
-    return { reply, action };
+
+    if (!a) return { reply, action: null };
+
+    if (a.type === 'move' && a.taskId && a.toListId) {
+      return { reply, action: { type: 'move', taskId: a.taskId, toListId: a.toListId } };
+    }
+
+    if (a.type === 'create' && a.title && a.listId) {
+      return {
+        reply,
+        action: {
+          type: 'create',
+          id: uuidv4(),
+          title: a.title,
+          description: a.description ?? '',
+          listId: a.listId,
+        },
+      };
+    }
+
+    return { reply, action: null };
   } catch {
     return { reply: raw, action: null };
   }
@@ -108,24 +147,45 @@ export async function handleChat(req: AuthRequest, res: Response): Promise<void>
     const db = getDb();
     const now = new Date().toISOString();
 
-    const task = db
-      .prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?')
-      .get(action.taskId, userId);
-    const list = db
-      .prepare('SELECT id FROM lists WHERE id = ? AND user_id = ?')
-      .get(action.toListId, userId);
+    if (action.type === 'move') {
+      const task = db
+        .prepare('SELECT * FROM tasks WHERE id = ? AND user_id = ?')
+        .get(action.taskId, userId);
+      const list = db
+        .prepare('SELECT id FROM lists WHERE id = ? AND user_id = ?')
+        .get(action.toListId, userId);
 
-    if (!task || !list) {
-      reply += ' (Move failed: task or list not found on server.)';
-      action = null;
-    } else {
-      const { count } = db
-        .prepare('SELECT COUNT(*) as count FROM tasks WHERE list_id = ? AND user_id = ?')
-        .get(action.toListId, userId) as { count: number };
+      if (!task || !list) {
+        reply += ' (Move failed: task or list not found on server.)';
+        action = null;
+      } else {
+        const { count } = db
+          .prepare('SELECT COUNT(*) as count FROM tasks WHERE list_id = ? AND user_id = ?')
+          .get(action.toListId, userId) as { count: number };
 
-      db.prepare(
-        'UPDATE tasks SET list_id = ?, position = ?, updated_at = ? WHERE id = ? AND user_id = ?',
-      ).run(action.toListId, count, now, action.taskId, userId);
+        db.prepare(
+          'UPDATE tasks SET list_id = ?, position = ?, updated_at = ? WHERE id = ? AND user_id = ?',
+        ).run(action.toListId, count, now, action.taskId, userId);
+      }
+    }
+
+    if (action?.type === 'create') {
+      const list = db
+        .prepare('SELECT id FROM lists WHERE id = ? AND user_id = ?')
+        .get(action.listId, userId);
+
+      if (!list) {
+        reply += ' (Create failed: list not found on server.)';
+        action = null;
+      } else {
+        const { count } = db
+          .prepare('SELECT COUNT(*) as count FROM tasks WHERE list_id = ? AND user_id = ?')
+          .get(action.listId, userId) as { count: number };
+
+        db.prepare(
+          'INSERT INTO tasks (id, title, description, position, list_id, user_id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        ).run(action.id, action.title, action.description, count, action.listId, userId, now, now);
+      }
     }
   }
 
