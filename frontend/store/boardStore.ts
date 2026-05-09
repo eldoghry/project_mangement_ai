@@ -37,6 +37,7 @@ type BoardState = {
     activeListId: string;
     overListId: string;
   }) => void;
+  moveTaskToList: (taskId: string, toListId: string) => void;
 };
 
 export const useBoardStore = create<BoardState>()((set, get) => ({
@@ -192,5 +193,23 @@ export const useBoardStore = create<BoardState>()((set, get) => ({
         .move(activeId, { toListId: overListId, position: Math.max(0, position) })
         .catch((err: Error) => set({ error: err.message }));
     }
+  },
+
+  moveTaskToList: (taskId, toListId) => {
+    set((state) => {
+      const lists = state.lists.map((l) => ({ ...l, tasks: [...l.tasks] }));
+      const sourceList = lists.find((l) => l.tasks.some((t) => t.id === taskId));
+      const targetList = lists.find((l) => l.id === toListId);
+      if (!sourceList || !targetList || sourceList.id === toListId) return state;
+      const taskIndex = sourceList.tasks.findIndex((t) => t.id === taskId);
+      const [task] = sourceList.tasks.splice(taskIndex, 1);
+      if (!task) return state;
+      targetList.tasks.push(task);
+      return { lists };
+    });
+    const position = get().lists.find((l) => l.id === toListId)?.tasks.length ?? 0;
+    api.tasks
+      .move(taskId, { toListId, position: Math.max(0, position - 1) })
+      .catch((err: Error) => set({ error: err.message }));
   },
 }));

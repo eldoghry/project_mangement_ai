@@ -181,37 +181,36 @@ Phases are meant to be committed to git one at a time after each is fully comple
 
 ### Subtasks
 
-- [ ] **4.1** OpenRouter backend client
-  - [ ] Create `backend/src/lib/openrouter.ts` — typed wrapper around OpenRouter chat completion API
-  - [ ] Use a free model (e.g. `mistralai/mistral-7b-instruct:free`)
-  - [ ] Store `OPENROUTER_API_KEY` in `.env`
+- [x] **4.1** OpenRouter backend client
+  - [x] Create `backend/src/lib/openrouter.ts` — typed wrapper around OpenRouter chat completion API
+  - [x] Use model `openai/gpt-oss-120b:free`
+  - [x] Store `OPENROUTER_API_KEY` in `.env`
 
-- [ ] **4.2** Smoke test endpoint
-  - [ ] `POST /api/ai/chat` with body `{ message: "2+2" }`
-  - [ ] Send as a plain prompt, return AI response text
-  - [ ] Verify model responds correctly before adding board context
+- [x] **4.2** Smoke test endpoint
+  - [x] `POST /api/ai/chat` with body `{ message: "2+2" }`
+  - [x] Send as a plain prompt, return AI response text
 
-- [ ] **4.3** Board-aware Q&A
-  - [ ] Extend `/api/ai/chat` to accept board snapshot (all lists + tasks) in request
-  - [ ] Build a system prompt that includes the board state as structured context
-  - [ ] AI can answer questions like "how many tasks are in progress?" or "what's in the backlog?"
+- [x] **4.3** Board-aware Q&A
+  - [x] Extend `/api/ai/chat` to accept board snapshot (all lists + tasks) in request
+  - [x] Build a system prompt that includes the board state as structured context
+  - [x] AI can answer questions like "how many tasks are in progress?" or "what's in the backlog?"
 
-- [ ] **4.4** AI-powered card movement
-  - [ ] Extend prompt with instructions for structured tool-use response
-  - [ ] Parse AI response for move commands: `{ action: "move", taskId, toListId }`
-  - [ ] Backend validates and executes the move via existing task move logic
-  - [ ] Return updated board state in response
+- [x] **4.4** AI-powered card movement
+  - [x] Extend prompt with instructions for structured JSON response
+  - [x] Parse AI response for move commands: `{ action: { type: "move", taskId, toListId } }`
+  - [x] Backend validates ownership and executes the move before responding
+  - [x] Frontend applies move to board store via `moveTaskToList`
 
-- [ ] **4.5** Frontend AI chat UI
-  - [ ] Add `AIChatPanel` component (collapsible sidebar or floating panel)
-  - [ ] Input field for user message; display AI response
-  - [ ] If AI response contains a move action, apply it to the board store
+- [x] **4.5** Frontend AI chat UI
+  - [x] Add `AIChatPanel` component (floating panel, bottom-right)
+  - [x] Input field for user message; displays conversation history
+  - [x] If AI response contains a move action, applies it to the board store
 
-- [ ] **4.6** Full AI integration test
-  - [ ] Test: "What tasks are in the Done column?" → correct answer
-  - [ ] Test: "Move 'Fix bug' to In Progress" → card moves visually + persists
+- [x] **4.6** Full AI integration test
+  - [x] Test: "What tasks are in the Done column?" → correct answer
+  - [x] Test: "Move 'Fix bug' to In Progress" → card moves visually + persists
 
-- [ ] **4.7** Update `backend/CLAUDE.md` with AI endpoint docs
+- [x] **4.7** Update `backend/CLAUDE.md` with AI endpoint docs
 
 ---
 

@@ -93,4 +93,21 @@ export const api = {
         body: JSON.stringify({ listId, taskIds }),
       }),
   },
+  ai: {
+    chat: (data: {
+      message: string;
+      board?: Array<{
+        id: string;
+        title: string;
+        tasks: Array<{ id: string; title: string; description: string }>;
+      }>;
+    }) =>
+      req<{
+        reply: string;
+        action: { type: string; taskId: string; toListId: string } | null;
+      }>("/api/ai/chat", {
+        method: "POST",
+        body: JSON.stringify(data),
+      }),
+  },
 };

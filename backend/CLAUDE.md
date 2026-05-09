@@ -14,7 +14,7 @@ Full-stack Kanban board. Frontend is Next.js (already complete). This backend pr
 - JWT authentication (login + register)
 - REST API for lists and tasks (SQLite persistence)
 - Docker setup for running both services together
-- AI assistant via OpenRouter (Phase 4 — not yet started)
+- AI assistant via OpenRouter (Phase 4 — complete)
 
 **Frontend:** `frontend/` — Next.js, Zustand, Tailwind, dnd-kit
 **Backend:** `backend/` — TypeScript, Express 5, SQLite (`better-sqlite3`)
@@ -50,10 +50,12 @@ backend/
       auth.ts             — POST /api/auth/login|register|logout
       lists.ts            — GET /api/lists, PATCH /api/lists/:id
       tasks.ts            — POST/PATCH/DELETE /api/tasks, move, reorder
+      ai.ts               — POST /api/ai/chat
     controllers/
       authController.ts   — login, register, logout handlers
       listsController.ts  — getLists, renameList
       tasksController.ts  — createTask, updateTask, deleteTask, moveTask, reorderTasks
+      aiController.ts     — handleChat: board-aware Q&A + move action parsing + DB execution
     middleware/
       auth.ts             — requireAuth: JWT verify, attaches req.user
       errorHandler.ts     — global error handler (ZodError → 400, Error → 500)
@@ -63,7 +65,7 @@ backend/
     models/
       types.ts            — User, List, Task, ListWithTasks interfaces
     lib/
-      openrouter.ts       — (Phase 4) OpenRouter API client, not yet created
+      openrouter.ts       — OpenRouter HTTP client (chatCompletion helper, model: openai/gpt-oss-120b:free)
   data/
     kanban.db             — SQLite file (gitignored, created at runtime)
   Dockerfile
@@ -139,12 +141,16 @@ backend/
 
 > **Route order matters:** `PATCH /api/tasks/reorder` must be registered before `PATCH /api/tasks/:id` in `routes/tasks.ts`, otherwise Express matches `/reorder` as an `:id`.
 
-### AI (Phase 4 — not yet implemented)
+### AI
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| POST | `/api/ai/chat` | `{ message, board? }` | `{ reply, action? }` |
+| POST | `/api/ai/chat` | `{ message, board? }` | `{ reply, action }` |
 
-`action` (optional): `{ type: "move", taskId: string, toListId: string }`
+`board` (optional): `Array<{ id, title, tasks: Array<{ id, title, description }> }>` — current board snapshot sent from frontend.
+
+`action`: `{ type: "move", taskId: string, toListId: string } | null`
+
+When `action` is a move, the backend validates ownership and executes the DB update before responding, so the move is already persisted when the frontend receives the reply.
 
 ---
 
@@ -263,7 +269,7 @@ npm start       # run compiled dist/index.js
 | 1 | Backend foundation (Express + SQLite + JWT) | ✅ Complete |
 | 2 | Docker + run scripts (Mac/Linux/Windows) | ✅ Complete |
 | 3 | Frontend–backend integration | ✅ Complete |
-| 4 | AI assistant (OpenRouter) | 🔲 Next |
+| 4 | AI assistant (OpenRouter) | ✅ Complete |
 
 See `docs/PLAN.md` for full subtask breakdown and checkbox status.
 

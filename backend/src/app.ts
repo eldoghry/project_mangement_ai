@@ -4,6 +4,7 @@ import { errorHandler } from "./middleware/errorHandler";
 import authRoutes from "./routes/auth";
 import listsRoutes from "./routes/lists";
 import tasksRoutes from "./routes/tasks";
+import aiRoutes from "./routes/ai";
 
 const corsOptions = {
   origin: "*", // Use string "*" instead of ["*"]
@@ -26,6 +27,7 @@ export function createApp() {
   app.use("/api/auth", authRoutes);
   app.use("/api/lists", listsRoutes);
   app.use("/api/tasks", tasksRoutes);
+  app.use("/api/ai", aiRoutes);
 
   app.use(errorHandler);
 

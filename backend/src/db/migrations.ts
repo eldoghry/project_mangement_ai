@@ -59,6 +59,54 @@ export function seedDemoUser(): void {
   seedUserLists(id);
 }
 
+const DEMO_TASKS: Array<{
+  title: string;
+  description: string;
+  listId: (typeof DEFAULT_LISTS)[number]['id'];
+  position: number;
+}> = [
+  // Backlog
+  { listId: 'backlog', position: 0, title: 'Design new dashboard layout',  description: 'Create wireframes for the redesigned analytics dashboard' },
+  { listId: 'backlog', position: 1, title: 'Research competitor features',  description: 'Look into what features similar products offer' },
+  { listId: 'backlog', position: 2, title: 'Write API documentation',       description: '' },
+  // Todo
+  { listId: 'todo',    position: 0, title: 'Set up CI/CD pipeline',         description: 'Configure GitHub Actions for automated testing and deployment' },
+  { listId: 'todo',    position: 1, title: 'Fix login page styling',        description: 'Align the login form properly on mobile screens' },
+  { listId: 'todo',    position: 2, title: 'Add unit tests for auth module', description: '' },
+  // In Progress
+  { listId: 'in-progress', position: 0, title: 'Build user profile page',    description: 'Implement the user settings and profile editing UI' },
+  { listId: 'in-progress', position: 1, title: 'Integrate payment gateway',  description: 'Connect Stripe for subscription billing' },
+  // Review
+  { listId: 'review',  position: 0, title: 'Code review: database schema',  description: 'Review the proposed changes to the users table' },
+  { listId: 'review',  position: 1, title: 'QA: mobile responsiveness',     description: 'Test the board on various screen sizes' },
+  // Done
+  { listId: 'done',    position: 0, title: 'Initial project setup',         description: 'Set up repository, branching strategy, and development environment' },
+  { listId: 'done',    position: 1, title: 'Design system foundation',      description: 'Created base colors, typography, and component library' },
+];
+
+export function seedDemoTasks(): void {
+  const db = getDb();
+  const user = db.prepare('SELECT id FROM users WHERE username = ?').get('user') as { id: string } | undefined;
+  if (!user) return;
+
+  const existing = db.prepare('SELECT COUNT(*) as count FROM tasks WHERE user_id = ?').get(user.id) as { count: number };
+  if (existing.count > 0) return;
+
+  const insert = db.prepare(`
+    INSERT INTO tasks (id, title, description, position, list_id, user_id, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const now = new Date().toISOString();
+  const insertAll = db.transaction(() => {
+    for (const t of DEMO_TASKS) {
+      insert.run(uuidv4(), t.title, t.description, t.position, t.listId, user.id, now, now);
+    }
+  });
+
+  insertAll();
+}
+
 export function seedUserLists(userId: string): void {
   const db = getDb();
   const now = new Date().toISOString();

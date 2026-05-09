@@ -5,6 +5,7 @@ import { BoardClient } from "@/components/BoardClient";
 import { BoardStats } from "@/components/BoardStats";
 import { TaskSearch } from "@/components/TaskSearch";
 import { AuthButton } from "@/components/AuthButton";
+import { AIChatPanel } from "@/components/AIChatPanel";
 import { useAuthStore } from "@/store/authStore";
 import { useBoardStore } from "@/store/boardStore";
 
@@ -63,6 +64,8 @@ export default function Home() {
           </button>
         </div>
       )}
+
+      {hasHydrated && isAuthenticated && <AIChatPanel />}
 
       <main className="flex min-h-0 flex-1 flex-col px-6 py-6">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-[#EEF2F6] p-4">
