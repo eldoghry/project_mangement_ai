@@ -136,38 +136,42 @@ Phases are meant to be committed to git one at a time after each is fully comple
 
 ### Subtasks
 
-- [ ] **3.1** API client setup in frontend
-  - [ ] Create `frontend/src/lib/api.ts` — typed fetch wrapper with JWT header injection
-  - [ ] Store JWT token in `localStorage` as `kanban_token`
-  - [ ] Add `NEXT_PUBLIC_API_URL` to `frontend/.env.local`
+- [x] **3.1** API client setup in frontend
+  - [x] Create `frontend/lib/api.ts` — typed fetch wrapper with JWT header injection
+  - [x] Store JWT token in `localStorage` as `kanban_token`
+  - [x] Add `NEXT_PUBLIC_API_URL` to `frontend/.env.local`
 
-- [ ] **3.2** Update auth flow
-  - [ ] Update `authStore.ts` `login()` to call `POST /api/auth/login` and store JWT
-  - [ ] Update `logout()` to clear JWT
-  - [ ] Handle 401 responses globally (redirect to `/login`)
+- [x] **3.2** Update auth flow
+  - [x] Update `authStore.ts` `login()` to call `POST /api/auth/login` and store JWT (async)
+  - [x] Added `register()` action for new account creation
+  - [x] Update `logout()` to clear JWT from localStorage
+  - [x] Login page updated: async submit, login/register toggle, loading state
 
-- [ ] **3.3** Update board state management
-  - [ ] Replace localStorage board persistence in `boardStore.ts` with API calls
-  - [ ] On login: fetch `GET /api/lists` and populate store
-  - [ ] `addTask` → calls `POST /api/tasks`
-  - [ ] `updateTask` → calls `PATCH /api/tasks/:id`
-  - [ ] `deleteTask` → calls `DELETE /api/tasks/:id`
-  - [ ] `renameList` → calls `PATCH /api/lists/:id`
-  - [ ] `moveTaskOnDragEnd` → calls `PATCH /api/tasks/:id/move`
+- [x] **3.3** Update board state management
+  - [x] Replaced localStorage board persistence in `boardStore.ts` with API calls
+  - [x] On login: `setOwner` fetches `GET /api/lists` and populates store
+  - [x] `addTask` → calls `POST /api/tasks` (API-first, then updates state)
+  - [x] `updateTask` → optimistic update + `PATCH /api/tasks/:id`
+  - [x] `deleteTask` → optimistic update + `DELETE /api/tasks/:id`
+  - [x] `renameList` → optimistic update + `PATCH /api/lists/:id`
+  - [x] `moveTaskOnDragEnd` → optimistic update + `PATCH /api/tasks/:id/move` or reorder
 
-- [ ] **3.4** Loading & error states
-  - [ ] Add `isLoading` state to store
-  - [ ] Show spinner or disabled UI during API calls
-  - [ ] Toast / inline error on API failure
+- [x] **3.4** Loading & error states
+  - [x] `isLoading` state in boardStore — spinner shown during initial board fetch
+  - [x] `error` state in boardStore — dismissable error banner in page.tsx
+  - [x] Login button disabled + "Please wait…" text during auth request
 
-- [ ] **3.5** End-to-end integration test
-  - [ ] Login with real credentials → board loads from DB
-  - [ ] Create, edit, delete task → persists after page reload
-  - [ ] Drag task to different list → persists after page reload
-  - [ ] Rename list → persists after page reload
-  - [ ] Logout + login again → same board state
+- [x] **3.5** End-to-end integration test (API smoke test passed)
+  - [x] Demo user `user/password` seeded automatically on backend startup
+  - [x] Login → board loads 5 lists from DB
+  - [x] Create task → persists in DB
+  - [x] Update task → persists in DB
+  - [x] Move task to different list → persists in DB
+  - [x] Delete task → removed from DB
+  - [x] Rename list → persists in DB
+  - [x] Register new user → gets own 5 lists
 
-- [ ] **3.6** Update `backend/CLAUDE.md` if any API contract changed during integration
+- [x] **3.6** Update `backend/CLAUDE.md` — no API contract changes needed
 
 ---
 

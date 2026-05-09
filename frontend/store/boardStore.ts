@@ -1,134 +1,31 @@
 import { create } from "zustand";
 import { arrayMove } from "@dnd-kit/sortable";
 import type { List, Task } from "@/types/board";
+import { api, ApiList } from "@/lib/api";
 
-const BOARD_STORAGE_PREFIX = "kanban-board:";
-
-const initialLists: List[] = [
-  {
-    id: "backlog",
-    title: "Backlog",
-    tasks: [
-      {
-        id: "seed-b1",
-        title: "Dark mode",
-        description: "Add a theme toggle and persist choice in localStorage.",
-      },
-      {
-        id: "seed-b2",
-        title: "Keyboard shortcuts",
-        description: "N for new task, / to focus search when we add search.",
-      },
-      {
-        id: "seed-b3",
-        title: "Export board",
-        description: "JSON download of lists and tasks for backup.",
-      },
-    ],
-  },
-  {
-    id: "todo",
-    title: "Todo",
-    tasks: [
-      {
-        id: "seed-t1",
-        title: "Polish list headers",
-        description: "Slightly larger tap targets for rename on mobile.",
-      },
-      {
-        id: "seed-t2",
-        title: "Empty state copy",
-        description: "Friendlier hint when a column has no tasks yet.",
-      },
-    ],
-  },
-  {
-    id: "in-progress",
-    title: "In Progress",
-    tasks: [
-      {
-        id: "seed-p1",
-        title: "Drag and drop QA",
-        description: "Verify reorder and cross-column moves on touch devices.",
-      },
-    ],
-  },
-  {
-    id: "review",
-    title: "Review",
-    tasks: [
-      {
-        id: "seed-r1",
-        title: "Board layout spacing",
-        description: "Check horizontal scroll and min heights on small laptops.",
-      },
-    ],
-  },
-  {
-    id: "done",
-    title: "Done",
-    tasks: [
-      {
-        id: "seed-d1",
-        title: "Initial Kanban MVP",
-        description: "Five lists, rename, create, reorder, move between lists.",
-      },
-      {
-        id: "seed-d2",
-        title: "Tailwind theme tokens",
-        description: "Background, accent, and border colors from the spec.",
-      },
-    ],
-  },
-];
-
-function uid() {
-  return crypto.randomUUID();
-}
-
-function cloneLists(lists: List[]): List[] {
-  return lists.map((list) => ({
-    ...list,
-    tasks: list.tasks.map((task) => ({ ...task })),
-  }));
-}
-
-function getBoardStorageKey(username: string): string {
-  return `${BOARD_STORAGE_PREFIX}${username.toLowerCase()}`;
-}
-
-function loadListsForUser(username: string): List[] {
-  if (typeof window === "undefined") return cloneLists(initialLists);
-  const raw = window.localStorage.getItem(getBoardStorageKey(username));
-  if (!raw) return cloneLists(initialLists);
-  try {
-    const parsed = JSON.parse(raw) as List[];
-    if (!Array.isArray(parsed)) return cloneLists(initialLists);
-    return cloneLists(parsed);
-  } catch {
-    return cloneLists(initialLists);
-  }
-}
-
-function persistListsForUser(username: string, lists: List[]): void {
-  if (typeof window === "undefined") return;
-  window.localStorage.setItem(
-    getBoardStorageKey(username),
-    JSON.stringify(cloneLists(lists)),
-  );
+function toList(apiList: ApiList): List {
+  return {
+    id: apiList.id,
+    title: apiList.title,
+    tasks: [...apiList.tasks]
+      .sort((a, b) => a.position - b.position)
+      .map((t) => ({ id: t.id, title: t.title, description: t.description })),
+  };
 }
 
 type BoardState = {
   lists: List[];
   ownerUsername: string | null;
-  /** When set, the matching `TaskCard` opens its edit modal then clears this. */
+  isLoading: boolean;
+  error: string | null;
   pendingOpenTaskId: string | null;
-  setOwner: (username: string) => void;
+  setOwner: (username: string) => Promise<void>;
   clearOwner: () => void;
+  clearError: () => void;
   requestOpenTask: (taskId: string) => void;
   clearPendingOpenTask: () => void;
   renameList: (listId: string, title: string) => void;
-  addTask: (listId: string, title: string, description?: string) => void;
+  addTask: (listId: string, title: string, description?: string) => Promise<void>;
   updateTask: (
     taskId: string,
     updates: Partial<Pick<Task, "title" | "description">>,
@@ -142,62 +39,77 @@ type BoardState = {
   }) => void;
 };
 
-export const useBoardStore = create<BoardState>((set) => ({
-  lists: cloneLists(initialLists),
+export const useBoardStore = create<BoardState>()((set, get) => ({
+  lists: [],
   ownerUsername: null,
+  isLoading: false,
+  error: null,
   pendingOpenTaskId: null,
 
-  setOwner: (username) =>
-    set(() => ({
-      ownerUsername: username,
-      pendingOpenTaskId: null,
-      lists: loadListsForUser(username),
-    })),
+  setOwner: async (username) => {
+    set({ ownerUsername: username, isLoading: true, error: null, pendingOpenTaskId: null });
+    try {
+      const apiLists = await api.lists.getAll();
+      set({ lists: apiLists.map(toList), isLoading: false });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : "Failed to load board",
+      });
+    }
+  },
 
   clearOwner: () =>
-    set(() => ({
-      ownerUsername: null,
-      pendingOpenTaskId: null,
-      lists: cloneLists(initialLists),
-    })),
+    set({ ownerUsername: null, lists: [], pendingOpenTaskId: null, error: null }),
+
+  clearError: () => set({ error: null }),
 
   requestOpenTask: (taskId) => set({ pendingOpenTaskId: taskId }),
 
   clearPendingOpenTask: () => set({ pendingOpenTaskId: null }),
 
-  renameList: (listId, title) =>
-    set((state) => {
-      const lists = state.lists.map((l) =>
-        l.id === listId ? { ...l, title: title.trim() || l.title } : l,
-      );
-      if (state.ownerUsername) {
-        persistListsForUser(state.ownerUsername, lists);
-      }
-      return { lists };
-    }),
-
-  addTask: (listId, title, description = "") => {
+  renameList: (listId, title) => {
     const trimmed = title.trim();
     if (!trimmed) return;
-    const task: Task = {
-      id: uid(),
-      title: trimmed,
-      description: description.trim(),
-    };
-    set((state) => {
-      const lists = state.lists.map((l) =>
-        l.id === listId ? { ...l, tasks: [...l.tasks, task] } : l,
-      );
-      if (state.ownerUsername) {
-        persistListsForUser(state.ownerUsername, lists);
-      }
-      return { lists };
-    });
+    set((state) => ({
+      lists: state.lists.map((l) =>
+        l.id === listId ? { ...l, title: trimmed } : l,
+      ),
+    }));
+    api.lists.rename(listId, trimmed).catch((err: Error) =>
+      set({ error: err.message }),
+    );
   },
 
-  updateTask: (taskId, updates) =>
-    set((state) => {
-      const lists = state.lists.map((list) => ({
+  addTask: async (listId, title, description = "") => {
+    const trimmed = title.trim();
+    if (!trimmed) return;
+    const position = get().lists.find((l) => l.id === listId)?.tasks.length ?? 0;
+    try {
+      const apiTask = await api.tasks.create({
+        title: trimmed,
+        description: description.trim(),
+        listId,
+        position,
+      });
+      const task: Task = {
+        id: apiTask.id,
+        title: apiTask.title,
+        description: apiTask.description,
+      };
+      set((state) => ({
+        lists: state.lists.map((l) =>
+          l.id === listId ? { ...l, tasks: [...l.tasks, task] } : l,
+        ),
+      }));
+    } catch (err) {
+      set({ error: err instanceof Error ? err.message : "Failed to add task" });
+    }
+  },
+
+  updateTask: (taskId, updates) => {
+    set((state) => ({
+      lists: state.lists.map((list) => ({
         ...list,
         tasks: list.tasks.map((t) => {
           if (t.id !== taskId) return t;
@@ -211,32 +123,28 @@ export const useBoardStore = create<BoardState>((set) => ({
           }
           return next;
         }),
-      }));
-      if (state.ownerUsername) {
-        persistListsForUser(state.ownerUsername, lists);
-      }
-      return { lists };
-    }),
+      })),
+    }));
+    api.tasks.update(taskId, updates).catch((err: Error) =>
+      set({ error: err.message }),
+    );
+  },
 
-  deleteTask: (taskId) =>
-    set((state) => {
-      const lists = state.lists.map((list) => ({
+  deleteTask: (taskId) => {
+    set((state) => ({
+      lists: state.lists.map((list) => ({
         ...list,
         tasks: list.tasks.filter((t) => t.id !== taskId),
-      }));
-      if (state.ownerUsername) {
-        persistListsForUser(state.ownerUsername, lists);
-      }
-      return { lists };
-    }),
+      })),
+    }));
+    api.tasks.remove(taskId).catch((err: Error) =>
+      set({ error: err.message }),
+    );
+  },
 
-  moveTaskOnDragEnd: ({ activeId, overId, activeListId, overListId }) =>
+  moveTaskOnDragEnd: ({ activeId, overId, activeListId, overListId }) => {
     set((state) => {
-      const lists = state.lists.map((l) => ({
-        ...l,
-        tasks: [...l.tasks],
-      }));
-
+      const lists = state.lists.map((l) => ({ ...l, tasks: [...l.tasks] }));
       const activeList = lists.find((l) => l.id === activeListId);
       const overList = lists.find((l) => l.id === overListId);
       if (!activeList || !overList) return state;
@@ -250,9 +158,6 @@ export const useBoardStore = create<BoardState>((set) => ({
             : activeList.tasks.findIndex((t) => t.id === overId);
         if (newIndex === -1 || oldIndex === newIndex) return state;
         activeList.tasks = arrayMove(activeList.tasks, oldIndex, newIndex);
-        if (state.ownerUsername) {
-          persistListsForUser(state.ownerUsername, lists);
-        }
         return { lists };
       }
 
@@ -260,16 +165,32 @@ export const useBoardStore = create<BoardState>((set) => ({
       if (activeIndex === -1) return state;
       const [task] = activeList.tasks.splice(activeIndex, 1);
       if (!task) return state;
-
       const overIsContainer = overId === overListId;
       let insertIndex = overIsContainer
         ? overList.tasks.length
         : overList.tasks.findIndex((t) => t.id === overId);
       if (insertIndex < 0) insertIndex = overList.tasks.length;
       overList.tasks.splice(insertIndex, 0, task);
-      if (state.ownerUsername) {
-        persistListsForUser(state.ownerUsername, lists);
-      }
       return { lists };
-    }),
+    });
+
+    // Fire API after state is updated so positions are correct
+    const updatedLists = get().lists;
+    if (activeListId === overListId) {
+      const list = updatedLists.find((l) => l.id === activeListId);
+      if (list) {
+        api.tasks
+          .reorder(activeListId, list.tasks.map((t) => t.id))
+          .catch((err: Error) => set({ error: err.message }));
+      }
+    } else {
+      const toList = updatedLists.find((l) => l.id === overListId);
+      const position = toList
+        ? toList.tasks.findIndex((t) => t.id === activeId)
+        : 0;
+      api.tasks
+        .move(activeId, { toListId: overListId, position: Math.max(0, position) })
+        .catch((err: Error) => set({ error: err.message }));
+    }
+  },
 }));

@@ -2,12 +2,13 @@ import 'dotenv/config';
 import fs from 'fs';
 import path from 'path';
 import { createApp } from './app';
-import { runMigrations } from './db/migrations';
+import { runMigrations, seedDemoUser } from './db/migrations';
 
 const DATA_DIR = path.join(__dirname, '..', 'data');
 if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
 
 runMigrations();
+seedDemoUser();
 
 const PORT = parseInt(process.env.PORT ?? '4000', 10);
 const app = createApp();

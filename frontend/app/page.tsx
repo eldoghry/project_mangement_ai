@@ -14,21 +14,18 @@ export default function Home() {
   const username = useAuthStore((s) => s.username);
   const setOwner = useBoardStore((s) => s.setOwner);
   const clearOwner = useBoardStore((s) => s.clearOwner);
+  const isLoading = useBoardStore((s) => s.isLoading);
+  const error = useBoardStore((s) => s.error);
+  const clearError = useBoardStore((s) => s.clearError);
 
   useEffect(() => {
     if (!hasHydrated) return;
     if (isAuthenticated && username) {
-      setOwner(username);
+      setOwner(username).catch(console.error);
       return;
     }
     clearOwner();
-  }, [
-    hasHydrated,
-    isAuthenticated,
-    username,
-    setOwner,
-    clearOwner,
-  ]);
+  }, [hasHydrated, isAuthenticated, username, setOwner, clearOwner]);
 
   return (
     <div className="flex min-h-0 flex-1 flex-col bg-[#F8FAFC]">
@@ -53,12 +50,35 @@ export default function Home() {
           </div>
         ) : null}
       </header>
+
+      {error && (
+        <div className="mx-6 mt-4 flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
+          <span>{error}</span>
+          <button
+            onClick={clearError}
+            className="ml-4 text-red-500 hover:text-red-700"
+            aria-label="Dismiss error"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+
       <main className="flex min-h-0 flex-1 flex-col px-6 py-6">
         <div className="flex min-h-0 min-w-0 flex-1 flex-col rounded-xl bg-[#EEF2F6] p-4">
           {!hasHydrated ? (
             <div className="h-full min-h-0 flex-1" />
           ) : isAuthenticated ? (
-            <BoardClient />
+            isLoading ? (
+              <div className="flex h-full min-h-0 flex-1 items-center justify-center">
+                <div className="flex flex-col items-center gap-3">
+                  <div className="h-8 w-8 animate-spin rounded-full border-4 border-[#6366F1] border-t-transparent" />
+                  <p className="text-sm text-[#64748B]">Loading board…</p>
+                </div>
+              </div>
+            ) : (
+              <BoardClient />
+            )
           ) : (
             <div className="flex h-full min-h-0 flex-1 items-center justify-center rounded-lg border border-dashed border-[#CBD5E1] bg-white/60 p-6 text-center">
               <div>

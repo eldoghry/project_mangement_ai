@@ -1,3 +1,5 @@
+import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
 import { getDb } from './database';
 
 const DEFAULT_LISTS = [
@@ -41,6 +43,20 @@ export function runMigrations(): void {
       FOREIGN KEY (list_id, user_id) REFERENCES lists(id, user_id) ON DELETE CASCADE
     );
   `);
+}
+
+export function seedDemoUser(): void {
+  const db = getDb();
+  const existing = db.prepare('SELECT id FROM users WHERE username = ?').get('user');
+  if (existing) return;
+
+  const id = uuidv4();
+  const password_hash = bcrypt.hashSync('password', 10);
+  const now = new Date().toISOString();
+  db.prepare(
+    'INSERT INTO users (id, username, password_hash, created_at) VALUES (?, ?, ?, ?)'
+  ).run(id, 'user', password_hash, now);
+  seedUserLists(id);
 }
 
 export function seedUserLists(userId: string): void {

@@ -1,14 +1,15 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { api } from "@/lib/api";
 
-const DEMO_USERNAME = "user";
-const DEMO_PASSWORD = "password";
+const TOKEN_KEY = "kanban_token";
 
 type AuthState = {
   isAuthenticated: boolean;
   username: string | null;
   hasHydrated: boolean;
-  login: (username: string, password: string) => boolean;
+  login: (username: string, password: string) => Promise<boolean>;
+  register: (username: string, password: string) => Promise<boolean>;
   logout: () => void;
   setHasHydrated: (value: boolean) => void;
 };
@@ -20,16 +21,32 @@ export const useAuthStore = create<AuthState>()(
       username: null,
       hasHydrated: false,
 
-      login: (username, password) => {
-        const ok =
-          username.trim().toLowerCase() === DEMO_USERNAME &&
-          password === DEMO_PASSWORD;
-        if (!ok) return false;
-        set({ isAuthenticated: true, username: DEMO_USERNAME });
-        return true;
+      login: async (username, password) => {
+        try {
+          const { token, user } = await api.auth.login(username, password);
+          localStorage.setItem(TOKEN_KEY, token);
+          set({ isAuthenticated: true, username: user.username });
+          return true;
+        } catch {
+          return false;
+        }
       },
 
-      logout: () => set({ isAuthenticated: false, username: null }),
+      register: async (username, password) => {
+        try {
+          const { token, user } = await api.auth.register(username, password);
+          localStorage.setItem(TOKEN_KEY, token);
+          set({ isAuthenticated: true, username: user.username });
+          return true;
+        } catch {
+          return false;
+        }
+      },
+
+      logout: () => {
+        localStorage.removeItem(TOKEN_KEY);
+        set({ isAuthenticated: false, username: null });
+      },
 
       setHasHydrated: (value) => set({ hasHydrated: value }),
     }),

@@ -2,20 +2,23 @@
 
 ## Kanban Board Backend (TypeScript + Express + SQLite)
 
-This document describes the backend architecture, conventions, and current implementation state.
-Update this file whenever a new endpoint, schema change, or architectural decision is made.
+This document is the primary reference for any agent continuing work on this project.
+Read this file fully before starting any task. Update it after every phase.
 
 ---
 
-## 1. Project Goals
+## 1. Project Overview
 
-Provide a REST API backend that:
+Full-stack Kanban board. Frontend is Next.js (already complete). This backend provides:
 
-* Replaces the frontend's localStorage persistence with a real database
-* Upgrades demo auth to proper JWT-based authentication
-* Exposes CRUD operations for lists and tasks (matching the frontend data model)
-* Hosts an AI assistant endpoint powered by OpenRouter for board Q&A and card movement
-* Runs alongside the frontend inside Docker
+- JWT authentication (login + register)
+- REST API for lists and tasks (SQLite persistence)
+- Docker setup for running both services together
+- AI assistant via OpenRouter (Phase 4 — not yet started)
+
+**Frontend:** `frontend/` — Next.js, Zustand, Tailwind, dnd-kit
+**Backend:** `backend/` — TypeScript, Express 5, SQLite (`better-sqlite3`)
+**Plan:** `docs/PLAN.md` — master task list with checkbox status
 
 ---
 
@@ -23,52 +26,51 @@ Provide a REST API backend that:
 
 | Area | Choice |
 |------|--------|
-| Runtime | Node.js (LTS) |
-| Language | TypeScript (strict mode) |
-| Framework | Express |
+| Runtime | Node.js 20 LTS |
+| Language | TypeScript (strict) |
+| Framework | Express 5 |
 | Database | SQLite via `better-sqlite3` |
-| Auth | JWT (`jsonwebtoken`) + bcrypt (`bcryptjs`) |
-| Validation | Zod |
-| AI | OpenRouter API (HTTP) |
-| Dev server | `ts-node-dev` |
+| Auth | JWT (`jsonwebtoken` 7d expiry) + bcrypt (`bcryptjs`) |
+| Validation | Zod v4 (use `.issues` not `.errors`) |
+| IDs | `uuid` v4 |
+| AI | OpenRouter HTTP API (Phase 4) |
+| Dev server | `ts-node-dev --respawn --transpile-only` |
 | Build | `tsc` → `dist/` |
 
 ---
 
-## 3. Folder Structure (planned)
+## 3. Folder Structure (actual)
 
 ```
 backend/
   src/
-    index.ts            — entry point, starts server
-    app.ts              — Express app factory
+    index.ts              — entry: creates data dir, runs migrations, seeds demo user, starts server
+    app.ts                — Express factory: CORS, JSON, routes, error handler
     routes/
-      auth.ts
-      lists.ts
-      tasks.ts
-      ai.ts
+      auth.ts             — POST /api/auth/login|register|logout
+      lists.ts            — GET /api/lists, PATCH /api/lists/:id
+      tasks.ts            — POST/PATCH/DELETE /api/tasks, move, reorder
     controllers/
-      authController.ts
-      listsController.ts
-      tasksController.ts
-      aiController.ts
+      authController.ts   — login, register, logout handlers
+      listsController.ts  — getLists, renameList
+      tasksController.ts  — createTask, updateTask, deleteTask, moveTask, reorderTasks
     middleware/
-      auth.ts           — JWT verify middleware
-      errorHandler.ts   — global error handler
+      auth.ts             — requireAuth: JWT verify, attaches req.user
+      errorHandler.ts     — global error handler (ZodError → 400, Error → 500)
     db/
-      database.ts       — SQLite singleton
-      migrations.ts     — schema + seed on startup
+      database.ts         — better-sqlite3 singleton (WAL mode, FK on)
+      migrations.ts       — runMigrations(), seedDemoUser(), seedUserLists()
     models/
-      user.ts
-      list.ts
-      task.ts
+      types.ts            — User, List, Task, ListWithTasks interfaces
     lib/
-      openrouter.ts     — OpenRouter API client
+      openrouter.ts       — (Phase 4) OpenRouter API client, not yet created
+  data/
+    kanban.db             — SQLite file (gitignored, created at runtime)
   Dockerfile
   tsconfig.json
   package.json
-  .env                  — not committed (see .env.example at root)
-  CLAUDE.md             — this file
+  .env                    — not committed; copy from root .env.example
+  CLAUDE.md               — this file
 ```
 
 ---
@@ -76,46 +78,44 @@ backend/
 ## 4. Database Schema
 
 ### `users`
-
 | Column | Type | Notes |
 |--------|------|-------|
-| id | TEXT | UUID primary key |
-| username | TEXT | unique, not null |
+| id | TEXT | UUID PK |
+| username | TEXT | UNIQUE NOT NULL |
 | password_hash | TEXT | bcrypt hash |
 | created_at | TEXT | ISO timestamp |
 
 ### `lists`
-
 | Column | Type | Notes |
 |--------|------|-------|
-| id | TEXT | stable ids: `backlog`, `todo`, `in-progress`, `review`, `done` |
-| title | TEXT | editable display name |
-| position | INTEGER | order (0-indexed) |
-| user_id | TEXT | FK → users.id |
-| created_at | TEXT | ISO timestamp |
-| updated_at | TEXT | ISO timestamp |
+| id | TEXT | stable: `backlog` `todo` `in-progress` `review` `done` |
+| title | TEXT | editable |
+| position | INTEGER | 0-indexed order |
+| user_id | TEXT | FK → users.id CASCADE |
+| created_at / updated_at | TEXT | ISO timestamps |
+| PK | (id, user_id) | composite |
 
 ### `tasks`
-
 | Column | Type | Notes |
 |--------|------|-------|
-| id | TEXT | UUID |
+| id | TEXT | UUID PK |
 | title | TEXT | required |
-| description | TEXT | optional |
+| description | TEXT | default `''` |
 | position | INTEGER | order within list |
 | list_id | TEXT | FK → lists.id |
-| user_id | TEXT | FK → users.id |
-| created_at | TEXT | ISO timestamp |
-| updated_at | TEXT | ISO timestamp |
+| user_id | TEXT | FK → users.id CASCADE |
+| created_at / updated_at | TEXT | ISO timestamps |
+
+**On first login/register**, `seedUserLists(userId)` inserts the 5 default lists for that user.
+**On startup**, `seedDemoUser()` creates `user/password` if it doesn't exist.
 
 ---
 
 ## 5. API Endpoints
 
-> All routes (except auth) require `Authorization: Bearer <token>` header.
+> All routes except `/api/auth/*` require `Authorization: Bearer <token>`.
 
 ### Auth
-
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | POST | `/api/auth/login` | `{ username, password }` | `{ token, user: { id, username } }` |
@@ -123,14 +123,12 @@ backend/
 | POST | `/api/auth/logout` | — | `{ ok: true }` |
 
 ### Lists
-
 | Method | Path | Body | Response |
 |--------|------|------|----------|
-| GET | `/api/lists` | — | `List[]` (with nested tasks) |
-| PATCH | `/api/lists/:id` | `{ title }` | `List` |
+| GET | `/api/lists` | — | `ListWithTasks[]` sorted by position, tasks sorted by position |
+| PATCH | `/api/lists/:id` | `{ title }` | updated `List` |
 
 ### Tasks
-
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | POST | `/api/tasks` | `{ title, description?, listId, position }` | `Task` |
@@ -139,82 +137,146 @@ backend/
 | PATCH | `/api/tasks/:id/move` | `{ toListId, position }` | `Task` |
 | PATCH | `/api/tasks/reorder` | `{ listId, taskIds: string[] }` | `{ ok: true }` |
 
-### AI (Phase 4)
+> **Route order matters:** `PATCH /api/tasks/reorder` must be registered before `PATCH /api/tasks/:id` in `routes/tasks.ts`, otherwise Express matches `/reorder` as an `:id`.
 
+### AI (Phase 4 — not yet implemented)
 | Method | Path | Body | Response |
 |--------|------|------|----------|
 | POST | `/api/ai/chat` | `{ message, board? }` | `{ reply, action? }` |
 
-`action` (optional): `{ type: "move", taskId: string, toListId: string }` — returned when AI instructs a card move.
+`action` (optional): `{ type: "move", taskId: string, toListId: string }`
 
 ---
 
-## 6. Authentication Flow
+## 6. CORS Configuration
 
-1. Client sends `POST /api/auth/login` with `{ username, password }`.
-2. Server looks up user by username, verifies bcrypt hash.
-3. On success, server signs a JWT with payload `{ userId, username }` and `JWT_SECRET`.
-4. Client stores JWT in `localStorage` as `kanban_token`.
-5. All subsequent API requests include `Authorization: Bearer <token>`.
-6. `auth` middleware validates the token and attaches `req.user` to the request.
-7. On 401, frontend redirects to `/login`.
+**Important — Express 5 + CORS gotchas fixed in Phase 3:**
 
----
+```ts
+const corsOptions = {
+  origin: "*",
+  methods: ["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization"],
+};
 
-## 7. Error Response Format
-
-```json
-{
-  "error": "Human-readable message",
-  "code": "OPTIONAL_ERROR_CODE"
-}
+app.options(/.*/, cors(corsOptions));  // Express 5: use regex, NOT '*'
+app.use(cors(corsOptions));
 ```
 
-HTTP status codes: `400` validation, `401` unauthorized, `403` forbidden, `404` not found, `500` server error.
+- `app.options('*', ...)` crashes Express 5 (`path-to-regexp` no longer accepts bare `*`).
+- Use `app.options(/.*/, ...)` instead.
+- Both the explicit OPTIONS handler and `app.use(cors(...))` are required — one handles the preflight, the other sets headers on actual requests.
 
 ---
 
-## 8. Environment Variables
+## 7. Authentication Flow
 
-| Variable | Description |
-|----------|-------------|
-| `PORT` | Server port (default: `4000`) |
-| `JWT_SECRET` | Secret for signing JWTs |
-| `OPENROUTER_API_KEY` | OpenRouter API key for AI features |
-| `NODE_ENV` | `development` or `production` |
-
----
-
-## 9. AI Integration (Phase 4)
-
-* Uses OpenRouter's chat completion API with a free model (e.g. `mistralai/mistral-7b-instruct:free`).
-* The system prompt includes the current board state (all lists + task titles/descriptions) as structured context.
-* The model can respond with plain text (Q&A) or a structured action object (card move).
-* First test: send `"2+2"` with no board context to confirm connectivity before adding board logic.
+1. Client `POST /api/auth/login` → server bcrypt-verifies password → signs JWT `{ userId, username }` (7d).
+2. Client stores token in `localStorage` as `kanban_token`.
+3. All API requests send `Authorization: Bearer <token>`.
+4. `requireAuth` middleware verifies token, attaches `req.user = { userId, username }`.
+5. All DB queries scope by `user_id` — users only ever see their own data.
 
 ---
 
-## 10. Implementation Status
+## 8. Frontend Integration Notes
 
-> Updated as phases are completed. See `docs/PLAN.md` for detailed subtask tracking.
+**How the frontend connects (for reference when making backend changes):**
+
+- API client: `frontend/lib/api.ts` — reads `NEXT_PUBLIC_API_URL`, injects token from `localStorage`.
+- Auth store: `frontend/store/authStore.ts` — async `login()` / `register()` / `logout()`, persists `isAuthenticated` + `username` via Zustand persist.
+- Board store: `frontend/store/boardStore.ts` — `setOwner()` fetches lists on login; all mutations are optimistic (local state first, then API fire-and-forget with error state on failure).
+- JWT key in localStorage: `kanban_token`.
+- Frontend env var: `NEXT_PUBLIC_API_URL=http://localhost:4000` in `frontend/.env.local`.
+
+**Frontend Task/List shape** (what API responses must match):
+```ts
+type Task = { id: string; title: string; description: string }
+type List = { id: string; title: string; tasks: Task[] }
+```
+Backend returns extra fields (`position`, `user_id`, etc.) which the frontend `toList()` helper silently ignores.
+
+---
+
+## 9. Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `PORT` | Backend port | `4000` |
+| `JWT_SECRET` | JWT signing secret | — (required) |
+| `FRONTEND_URL` | Allowed CORS origin | `http://localhost:3000` |
+| `NODE_ENV` | `development` / `production` | `development` |
+| `OPENROUTER_API_KEY` | For Phase 4 AI features | — |
+
+Copy `root/.env.example` to `backend/.env` for local dev.
+
+---
+
+## 10. Running the Project
+
+**Local dev (no Docker):**
+```
+# Windows
+.\scripts\dev.ps1
+
+# Mac/Linux
+bash scripts/dev.sh
+```
+Starts backend on `:4000` and frontend on `:3000` concurrently.
+
+**Docker:**
+```
+# Windows
+.\scripts\run.ps1
+
+# Mac/Linux
+bash scripts/run.sh
+```
+
+**Backend only:**
+```bash
+cd backend
+npm run dev     # ts-node-dev watch mode
+npm run build   # compile to dist/
+npm start       # run compiled dist/index.js
+```
+
+---
+
+## 11. Known Issues & Decisions
+
+| Decision | Reason |
+|----------|--------|
+| `app.options(/.*/, cors(...))` regex wildcard | Express 5 / path-to-regexp v8 breaks on bare `*` |
+| Zod v4 uses `.issues` not `.errors` | Breaking change in Zod v4 |
+| Demo user `user/password` seeded on startup | Preserves original frontend demo UX |
+| Optimistic updates in frontend (not full sync) | Keeps UI instant; errors surface in error banner |
+| `PATCH /tasks/reorder` registered before `PATCH /tasks/:id` | Express matches routes in order; `reorder` would be caught as an `:id` param otherwise |
+
+---
+
+## 12. Implementation Status
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | .gitignore Files | ✅ Complete |
-| 1 | Backend Foundation | ✅ Complete |
-| 2 | Docker & Run Scripts | ✅ Complete |
-| 3 | Frontend–Backend Integration | Not started |
-| 4 | AI Integration | Not started |
+| 0 | .gitignore files | ✅ Complete |
+| 1 | Backend foundation (Express + SQLite + JWT) | ✅ Complete |
+| 2 | Docker + run scripts (Mac/Linux/Windows) | ✅ Complete |
+| 3 | Frontend–backend integration | ✅ Complete |
+| 4 | AI assistant (OpenRouter) | 🔲 Next |
+
+See `docs/PLAN.md` for full subtask breakdown and checkbox status.
 
 ---
 
-## 11. Frontend Reference
+## 13. Phase 4 Starting Point
 
-See `frontend/AGENTS.md` for:
+When starting Phase 4, the agent should:
 
-* Frontend data model (`Task`, `List`, `Board`)
-* Zustand store actions (`addTask`, `updateTask`, `deleteTask`, `moveTaskOnDragEnd`, etc.)
-* Auth store (`login`, `logout`, `isAuthenticated`)
-* Component structure and state shape
-
-Backend API responses must match the shapes the frontend stores expect.
+1. Read `docs/PLAN.md` subtasks 4.1–4.7.
+2. Create `backend/src/lib/openrouter.ts` — typed wrapper for OpenRouter chat completions.
+3. Create `backend/src/controllers/aiController.ts` and `backend/src/routes/ai.ts`.
+4. Register `/api/ai/chat` in `app.ts`.
+5. **First test:** send `{ message: "2+2" }` with no board context — verify the model responds before adding board-aware logic.
+6. Then extend to accept `board` snapshot and handle move actions.
+7. Then add the `AIChatPanel` component in the frontend.
