@@ -200,8 +200,8 @@ HTTP status codes: `400` validation, `401` unauthorized, `403` forbidden, `404` 
 
 | Phase | Description | Status |
 |-------|-------------|--------|
-| 0 | .gitignore Files | Not started |
-| 1 | Backend Foundation | Not started |
+| 0 | .gitignore Files | ✅ Complete |
+| 1 | Backend Foundation | ✅ Complete |
 | 2 | Docker & Run Scripts | Not started |
 | 3 | Frontend–Backend Integration | Not started |
 | 4 | AI Integration | Not started |

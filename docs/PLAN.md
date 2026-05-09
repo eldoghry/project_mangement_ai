@@ -39,53 +39,52 @@ Phases are meant to be committed to git one at a time after each is fully comple
 
 ### Subtasks
 
-- [ ] **1.1** Initialize backend project
-  - [ ] `npm init -y` inside `backend/`
-  - [ ] Install dependencies: `express`, `better-sqlite3`, `jsonwebtoken`, `bcryptjs`, `cors`, `dotenv`, `zod`
-  - [ ] Install dev dependencies: `typescript`, `ts-node-dev`, `@types/*`, `eslint`
-  - [ ] Configure `tsconfig.json` (strict mode, `outDir: dist`, `rootDir: src`)
-  - [ ] Configure `package.json` scripts: `dev`, `build`, `start`
+- [x] **1.1** Initialize backend project
+  - [x] `npm init -y` inside `backend/`
+  - [x] Install dependencies: `express`, `better-sqlite3`, `jsonwebtoken`, `bcryptjs`, `cors`, `dotenv`, `zod`, `uuid`
+  - [x] Install dev dependencies: `typescript`, `ts-node-dev`, `@types/*`, `eslint`
+  - [x] Configure `tsconfig.json` (strict mode, `outDir: dist`, `rootDir: src`)
+  - [x] Configure `package.json` scripts: `dev`, `build`, `start`
 
-- [ ] **1.2** Project structure
-  - [ ] Create `backend/src/` folder layout: `routes/`, `controllers/`, `middleware/`, `db/`, `models/`, `lib/`
-  - [ ] Create `backend/src/index.ts` (Express entry point)
-  - [ ] Create `backend/src/app.ts` (app factory, middleware registration)
+- [x] **1.2** Project structure
+  - [x] Create `backend/src/` folder layout: `routes/`, `controllers/`, `middleware/`, `db/`, `models/`
+  - [x] Create `backend/src/index.ts` (Express entry point)
+  - [x] Create `backend/src/app.ts` (app factory, middleware registration)
 
-- [ ] **1.3** Database setup (SQLite via `better-sqlite3`)
-  - [ ] Create `backend/src/db/database.ts` (singleton connection)
-  - [ ] Create `backend/src/db/migrations.ts` (run-on-start schema setup)
-  - [ ] Schema: `users`, `lists`, `tasks` tables
+- [x] **1.3** Database setup (SQLite via `better-sqlite3`)
+  - [x] Create `backend/src/db/database.ts` (singleton connection)
+  - [x] Create `backend/src/db/migrations.ts` (run-on-start schema setup)
+  - [x] Schema: `users`, `lists`, `tasks` tables
     - `users`: `id`, `username`, `password_hash`, `created_at`
     - `lists`: `id`, `title`, `position`, `user_id`, `created_at`, `updated_at`
     - `tasks`: `id`, `title`, `description`, `position`, `list_id`, `user_id`, `created_at`, `updated_at`
-  - [ ] Seed 5 default lists per new user on first login
+  - [x] Seed 5 default lists per new user on first login
 
-- [ ] **1.4** Authentication (JWT)
-  - [ ] `POST /api/auth/login` — validate credentials, return JWT
-  - [ ] `POST /api/auth/register` — create new user (optional for MVP)
-  - [ ] `POST /api/auth/logout` — client-side token drop (stateless)
-  - [ ] Create `backend/src/middleware/auth.ts` (JWT verify middleware)
-  - [ ] Store `JWT_SECRET` in `.env`
+- [x] **1.4** Authentication (JWT)
+  - [x] `POST /api/auth/login` — validate credentials, return JWT
+  - [x] `POST /api/auth/register` — create new user
+  - [x] `POST /api/auth/logout` — client-side token drop (stateless)
+  - [x] Create `backend/src/middleware/auth.ts` (JWT verify middleware)
+  - [x] Store `JWT_SECRET` in `.env`
 
-- [ ] **1.5** Lists API
-  - [ ] `GET  /api/lists` — get all lists for authenticated user (includes tasks)
-  - [ ] `PATCH /api/lists/:id` — rename a list
+- [x] **1.5** Lists API
+  - [x] `GET  /api/lists` — get all lists for authenticated user (includes tasks)
+  - [x] `PATCH /api/lists/:id` — rename a list
 
-- [ ] **1.6** Tasks API
-  - [ ] `POST   /api/tasks` — create task in a list
-  - [ ] `PATCH  /api/tasks/:id` — update title/description
-  - [ ] `DELETE /api/tasks/:id` — delete task
-  - [ ] `PATCH  /api/tasks/:id/move` — move task to different list with new position
-  - [ ] `PATCH  /api/tasks/reorder` — batch reorder tasks within a list
+- [x] **1.6** Tasks API
+  - [x] `POST   /api/tasks` — create task in a list
+  - [x] `PATCH  /api/tasks/:id` — update title/description
+  - [x] `DELETE /api/tasks/:id` — delete task
+  - [x] `PATCH  /api/tasks/:id/move` — move task to different list with new position
+  - [x] `PATCH  /api/tasks/reorder` — batch reorder tasks within a list
 
-- [ ] **1.7** Error handling & validation
-  - [ ] Global error handler middleware
-  - [ ] Input validation with `zod` on all body/param schemas
-  - [ ] Consistent JSON error response format: `{ error: string, code?: string }`
+- [x] **1.7** Error handling & validation
+  - [x] Global error handler middleware (`src/middleware/errorHandler.ts`)
+  - [x] Input validation with `zod` on all body/param schemas
+  - [x] Consistent JSON error response format: `{ error: string, details?: string[] }`
 
-- [ ] **1.8** Update `backend/CLAUDE.md`
-  - [ ] Document any new endpoints, schema changes, or architectural decisions made during this phase
-  - [ ] Mark this subtask complete after updating the file
+- [x] **1.8** Update `backend/CLAUDE.md`
+  - [x] Document any new endpoints, schema changes, or architectural decisions made during this phase
 
 ---
 
