@@ -202,7 +202,7 @@ HTTP status codes: `400` validation, `401` unauthorized, `403` forbidden, `404` 
 |-------|-------------|--------|
 | 0 | .gitignore Files | ✅ Complete |
 | 1 | Backend Foundation | ✅ Complete |
-| 2 | Docker & Run Scripts | Not started |
+| 2 | Docker & Run Scripts | ✅ Complete |
 | 3 | Frontend–Backend Integration | Not started |
 | 4 | AI Integration | Not started |
 

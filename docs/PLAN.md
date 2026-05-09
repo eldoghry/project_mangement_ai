@@ -94,38 +94,39 @@ Phases are meant to be committed to git one at a time after each is fully comple
 
 ### Subtasks
 
-- [ ] **2.1** Frontend Dockerfile (`frontend/Dockerfile`)
-  - [ ] Multi-stage build: `deps` → `builder` → `runner`
-  - [ ] Expose port `3000`
-  - [ ] Support `NEXT_PUBLIC_API_URL` build arg
+- [x] **2.1** Frontend Dockerfile (`frontend/Dockerfile`)
+  - [x] Multi-stage build: `deps` → `builder` → `runner`
+  - [x] Expose port `3000`
+  - [x] Support `NEXT_PUBLIC_API_URL` build arg
+  - [x] Enabled `output: 'standalone'` in `next.config.ts` for minimal image
 
-- [ ] **2.2** Backend Dockerfile (`backend/Dockerfile`)
-  - [ ] Multi-stage build: `builder` → `runner`
-  - [ ] Copy compiled `dist/` output
-  - [ ] Expose port `4000`
-  - [ ] Mount SQLite data volume
+- [x] **2.2** Backend Dockerfile (`backend/Dockerfile`)
+  - [x] Multi-stage build: `builder` → `runner`
+  - [x] Copy compiled `dist/` output
+  - [x] Expose port `4000`
+  - [x] Mount SQLite data volume at `/app/data`
 
-- [ ] **2.3** `docker-compose.yml` (root)
-  - [ ] `frontend` service (depends on `backend`)
-  - [ ] `backend` service with volume for SQLite db file
-  - [ ] Shared `.env` via `env_file`
-  - [ ] Network: `kanban-net`
+- [x] **2.3** `docker-compose.yml` (root)
+  - [x] `frontend` service (depends on `backend`)
+  - [x] `backend` service with named volume `kanban-data` for SQLite
+  - [x] Shared `.env` via `env_file`
+  - [x] Network: `kanban-net`
 
-- [ ] **2.4** `.env.example` (root)
-  - [ ] `JWT_SECRET`, `PORT`, `NEXT_PUBLIC_API_URL`, `OPENROUTER_API_KEY`
+- [x] **2.4** `.env.example` (root)
+  - [x] `JWT_SECRET`, `PORT`, `NEXT_PUBLIC_API_URL`, `OPENROUTER_API_KEY`
 
-- [ ] **2.5** Run scripts
-  - [ ] `scripts/run.sh` — bash script for **Mac/Linux** (`chmod +x` note included)
-    - [ ] Check Docker is running
-    - [ ] Copy `.env.example` → `.env` if missing
-    - [ ] `docker compose up --build`
-  - [ ] `scripts/run.ps1` — PowerShell script for **Windows**
-    - [ ] Same checks as bash script
-    - [ ] Use `docker compose up --build`
-  - [ ] `scripts/dev.sh` — local dev (no Docker): start frontend + backend concurrently
-  - [ ] `scripts/dev.ps1` — Windows equivalent of `dev.sh`
+- [x] **2.5** Run scripts
+  - [x] `scripts/run.sh` — bash script for **Mac/Linux**
+    - [x] Check Docker is running
+    - [x] Copy `.env.example` → `.env` if missing
+    - [x] `docker compose up --build`
+  - [x] `scripts/run.ps1` — PowerShell script for **Windows**
+    - [x] Same checks as bash script
+    - [x] Use `docker compose up --build`
+  - [x] `scripts/dev.sh` — local dev (no Docker): start frontend + backend concurrently
+  - [x] `scripts/dev.ps1` — Windows equivalent of `dev.sh`
 
-- [ ] **2.6** Update `backend/CLAUDE.md` with Docker/port info
+- [x] **2.6** Update `backend/CLAUDE.md` with Docker/port info
 
 ---
 
